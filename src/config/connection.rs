@@ -1,9 +1,11 @@
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr};
 use std::time::Duration;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use tokio::time::sleep;
 
-pub async fn connect() -> DatabaseConnection {
+async fn connect() -> Result<DatabaseConnection, DbErr> {
     let mut connection_options = ConnectOptions::new(dotenvy::var("DATABASE_URL").unwrap());
-        connection_options.max_connections(100)
+    connection_options
+        .max_connections(100)
         .min_connections(5)
         .connect_timeout(Duration::from_secs(8))
         .acquire_timeout(Duration::from_secs(8))
@@ -12,7 +14,27 @@ pub async fn connect() -> DatabaseConnection {
         .sqlx_logging(true)
         .sqlx_logging_level(log::LevelFilter::Info);
 
-    Database::connect(connection_options)
-        .await
-        .expect("Failed to connect to the database")
+    Database::connect(connection_options).await
+}
+
+pub async fn connect_with_retry() -> DatabaseConnection {
+    loop {
+        match connect().await {
+            Ok(conn) => {
+                println!("Connected to database");
+                return conn;
+            }
+            Err(e) => {
+                eprintln!("Failed to connect to DB: {:?}. Retrying in 5s...", e);
+                sleep(Duration::from_secs(5)).await
+            }
+        }
+    }
+}
+
+pub fn is_connection_error(err: &DbErr) -> bool {
+    matches!(
+        err,
+        DbErr::Conn(_) | DbErr::ConnectionAcquire(_)
+    )
 }
