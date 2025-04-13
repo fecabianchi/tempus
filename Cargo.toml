@@ -4,3 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+axum = "0.8.3"
+dotenvy = { version = "0.15.7" }
+async-std = { version = "1", features = ["attributes", "tokio1"] }
+sea-orm = { version = "1.1.8" , features = ["macros", "sqlx-postgres", "runtime-tokio-native-tls"]}
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.44.1", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"]}
+log = "0.4.27"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.16.0", features = ["v4"] }
+
+[dependencies.sea-orm-migration]
+version = "1.1.0"
+features = ["runtime-tokio-native-tls", "sqlx-postgres"
+]
