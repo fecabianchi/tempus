@@ -9,6 +9,8 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub job_id: Uuid,
     pub status: JobStatusEnum,
+    pub failure: Option<String>,
+    pub processed_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

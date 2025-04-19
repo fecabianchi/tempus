@@ -7,8 +7,6 @@ use sea_orm::entity::prelude::*;
 pub enum JobStatusEnum {
     #[sea_orm(string_value = "scheduled")]
     Scheduled,
-    #[sea_orm(string_value = "processing")]
-    Processing,
     #[sea_orm(string_value = "completed")]
     Completed,
     #[sea_orm(string_value = "deleted")]

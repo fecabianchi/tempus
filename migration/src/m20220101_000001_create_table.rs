@@ -1,9 +1,9 @@
+use sea_orm::prelude::SeaRc;
 use sea_orm::{DbErr, DeriveIden, DeriveMigrationName, EnumIter, Iterable};
 use sea_orm_migration::prelude::extension::postgres::Type;
 use sea_orm_migration::prelude::{ForeignKey, Table};
-use sea_orm_migration::schema::{date_time, enumeration, pk_uuid, string, timestamps};
+use sea_orm_migration::schema::{date_time, date_time_null, enumeration, json_binary, pk_uuid, string, string_null, timestamps};
 use sea_orm_migration::{async_trait, MigrationTrait, SchemaManager};
-use std::process::id;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -11,8 +11,6 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Replace the sample below with your own migration scripts
-
         manager
             .create_type(
                 Type::create()
@@ -39,6 +37,7 @@ impl MigrationTrait for Migration {
                     .col(pk_uuid(Job::Id))
                     .col(date_time(Job::Time))
                     .col(string(Job::Target))
+                    .col(json_binary(Job::Payload))
                     .col(enumeration(
                         Job::Type,
                         ScheduleTypeEnum,
@@ -61,6 +60,8 @@ impl MigrationTrait for Migration {
                         JobStatusEnum,
                         JobStatus::iter(),
                     ))
+                    .col(string_null(JobMetadata::Failure))
+                    .col(date_time_null(JobMetadata::ProcessedAt))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-jobmetadata-job-id")
@@ -75,10 +76,22 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Replace the sample below with your own migration scripts
+        manager
+            .drop_table(Table::drop().table(JobMetadata::Table).to_owned())
+            .await?;
 
         manager
             .drop_table(Table::drop().table(Job::Table).to_owned())
+            .await?;
+
+        manager
+            .drop_type(
+                Type::drop()
+                    .if_exists()
+                    .name(SeaRc::new(JobStatusEnum))
+                    .name(SeaRc::new(ScheduleTypeEnum))
+                    .to_owned(),
+            )
             .await
     }
 }
@@ -88,6 +101,8 @@ enum JobMetadata {
     Table,
     JobId,
     Status,
+    Failure,
+    ProcessedAt,
 }
 
 #[derive(DeriveIden)]
@@ -97,8 +112,7 @@ enum Job {
     Time,
     Target,
     Type,
-    CreatedAt,
-    UpdatedAt,
+    Payload,
 }
 
 #[derive(DeriveIden)]
@@ -107,7 +121,6 @@ struct JobStatusEnum;
 #[derive(DeriveIden, EnumIter)]
 pub enum JobStatus {
     Scheduled,
-    Processing,
     Completed,
     Deleted,
     Failed,
