@@ -1,14 +1,17 @@
 mod config;
+mod domain;
 mod engine;
-mod usecase;
-mod entity;
+mod infrastructure;
 
+use crate::engine::TempusEngine;
+use crate::engine::TempusEnginePort;
 use std::error::Error;
-use dotenvy;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenvy::dotenv()?;
-    engine::start().await;
+
+    TempusEngine.start().await;
+
     Ok(())
 }
