@@ -22,11 +22,13 @@ impl<JR: JobRepositoryPort + Send + Sync> ProcessJobUseCasePort for ProcessJobUs
             .expect("TODO: panic message");
 
         for job in jobs {
-            match job.r#type {
-                JobType::Http => {
-                    println!("Processing jobId: {}", job.id)
+            tokio::spawn(async move {
+                match job.r#type {
+                    JobType::Http => {
+                        println!("Processing jobId: {}", job.id);
+                    }
                 }
-            }
+            });
         }
     }
 }
