@@ -25,7 +25,7 @@ pub async fn connect_with_retry() -> DatabaseConnection {
                 return conn;
             }
             Err(e) => {
-                eprintln!("Failed to connect to DB: {:?}. Retrying in 5s...", e);
+                eprintln!("Failed to connect to DB: {e:?}. Retrying in 5s...");
                 sleep(Duration::from_secs(5)).await
             }
         }

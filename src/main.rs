@@ -8,7 +8,6 @@ use crate::domain::job::usecase::process_job_use_case::ProcessJobUseCase;
 use crate::engine::TempusEngine;
 use crate::engine::TempusEnginePort;
 use crate::infrastructure::persistence::job::job_repository::JobRepository;
-use dotenvy;
 use std::error::Error;
 
 #[tokio::main]
