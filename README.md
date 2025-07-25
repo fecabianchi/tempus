@@ -1,8 +1,11 @@
-# Tempus
+<p align="center">
+  <img width="400" height="400" alt="Tempus logo" src="https://github.com/user-attachments/assets/575c6ec1-6795-4843-ad9d-1dd39f015178" />
+</p>  
+<p align="center">
+Tempus is a minimalist, blazing-fast, and scalable scheduler designed to handle time-based job execution with maximum efficiency and simplicity.
+</p>  
+<br/>
 
-## What is it?
-
-**Tempus** is a minimalist, blazing-fast, and scalable scheduler designed to handle time-based job execution with maximum efficiency and simplicity.
 
 ## Goals
 
