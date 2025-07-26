@@ -18,3 +18,5 @@ Tempus should:
 - Be easy to integrate into any system  
 - Deliver high performance with low resource usage  
 - Scale horizontally and vertically with minimal effort
+
+> ⚠️ *Note: Tempus is under active development. APIs and features may change as the project evolves.*
