@@ -3,6 +3,7 @@ use crate::domain::job::port::driver::process_job_use_case_port::ProcessJobUseCa
 use crate::domain::job::usecase::process_job_use_case::ProcessJobUseCase;
 use crate::infrastructure::persistence::job::job_metadata_repository::JobMetadataRepository;
 use crate::infrastructure::persistence::job::job_repository::JobRepository;
+use log::info;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -24,7 +25,8 @@ impl TempusEnginePort for TempusEngine {
         let job_metadata_repository = JobMetadataRepository::new(database.clone());
         let usecase = ProcessJobUseCase::new(job_repository, job_metadata_repository);
 
-        println!("TEMPUS ENGINE: Starting");
+        info!("Engine starting");
+
         loop {
             usecase.execute().await;
             sleep(Duration::from_secs(interval)).await;

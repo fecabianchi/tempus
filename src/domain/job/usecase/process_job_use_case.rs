@@ -4,6 +4,7 @@ use crate::domain::job::port::driven::job_metadata_repository_port::JobMetadataR
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::domain::job::port::driver::process_job_use_case_port::ProcessJobUseCasePort;
 use chrono::Utc;
+use log::info;
 use reqwest::{Client, Error, Response};
 use sea_orm::JsonValue;
 
@@ -46,7 +47,7 @@ where
             tokio::spawn(async move {
                 match job.r#type {
                     JobType::Http => match job.metadata {
-                        None => println!("Metadata is missing for jobId: {}", &job.id),
+                        None => info!("Metadata is missing for jobId: {}", &job.id),
                         Some(metadata) => {
                             let result = perform_request(job_target, job_payload).await;
 

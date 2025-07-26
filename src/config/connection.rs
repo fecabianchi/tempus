@@ -1,3 +1,4 @@
+use log::{error, info};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr};
 use std::time::Duration;
 use tokio::time::sleep;
@@ -12,7 +13,7 @@ async fn connect() -> Result<DatabaseConnection, DbErr> {
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8))
         .sqlx_logging(true)
-        .sqlx_logging_level(log::LevelFilter::Info);
+        .sqlx_logging_level(log::LevelFilter::Debug);
 
     Database::connect(connection_options).await
 }
@@ -21,11 +22,11 @@ pub async fn connect_with_retry() -> DatabaseConnection {
     loop {
         match connect().await {
             Ok(conn) => {
-                println!("Connected to database");
+                info!("Connected to the database");
                 return conn;
             }
             Err(e) => {
-                eprintln!("Failed to connect to DB: {e:?}. Retrying in 5s...");
+                error!("Failed to connect to DB: {e:?}. Retrying in 5s...");
                 sleep(Duration::from_secs(5)).await
             }
         }
@@ -33,8 +34,5 @@ pub async fn connect_with_retry() -> DatabaseConnection {
 }
 
 pub fn is_connection_error(err: &DbErr) -> bool {
-    matches!(
-        err,
-        DbErr::Conn(_) | DbErr::ConnectionAcquire(_)
-    )
+    matches!(err, DbErr::Conn(_) | DbErr::ConnectionAcquire(_))
 }
