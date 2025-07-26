@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="400" height="400" alt="Tempus logo" src="https://github.com/user-attachments/assets/d1627851-b427-467b-8179-3dc3445753d8" />
+  <img width="400" height="400" alt="Tempus logo" src="https://github.com/user-attachments/assets/9c3f08d9-5fd5-457b-84d6-0a3d62c10897" />
 </p>  
 <p align="center">
 Tempus is a minimalist, blazing-fast, and scalable scheduler designed to handle time-based job execution with maximum efficiency and simplicity.
