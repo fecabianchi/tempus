@@ -3,8 +3,8 @@ use crate::domain::job::r#enum::job_enum::JobMetadataStatus;
 use crate::domain::job::port::driven::job_metadata_repository_port::JobMetadataRepositoryPort;
 use crate::infrastructure::persistence::job::job_metadata;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
-use sea_orm::{DatabaseConnection, EntityTrait};
 use sea_orm::prelude::async_trait::async_trait;
+use sea_orm::{DatabaseConnection, EntityTrait};
 
 #[derive(Clone)]
 pub struct JobMetadataRepository {
@@ -37,6 +37,7 @@ impl JobMetadataRepositoryPort for JobMetadataRepository {
 fn to_model_status(status: JobMetadataStatus) -> JobStatusEnum {
     match status {
         JobMetadataStatus::Scheduled => JobStatusEnum::Scheduled,
+        JobMetadataStatus::Processing => JobStatusEnum::Processing,
         JobMetadataStatus::Completed => JobStatusEnum::Completed,
         JobMetadataStatus::Deleted => JobStatusEnum::Deleted,
         JobMetadataStatus::Failed => JobStatusEnum::Failed,

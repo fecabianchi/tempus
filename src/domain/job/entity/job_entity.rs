@@ -37,6 +37,7 @@ impl From<(job::Model, Option<Model>)> for JobEntity {
                     job_id: job_metadata.job_id,
                     status: match job_metadata.status {
                         JobStatusEnum::Scheduled => JobMetadataStatus::Scheduled,
+                        JobStatusEnum::Processing => JobMetadataStatus::Processing,
                         JobStatusEnum::Completed => JobMetadataStatus::Completed,
                         JobStatusEnum::Deleted => JobMetadataStatus::Deleted,
                         JobStatusEnum::Failed => JobMetadataStatus::Failed,

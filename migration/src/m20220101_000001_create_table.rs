@@ -121,6 +121,7 @@ struct JobStatusEnum;
 #[derive(DeriveIden, EnumIter)]
 pub enum JobStatus {
     Scheduled,
+    Processing,
     Completed,
     Deleted,
     Failed,

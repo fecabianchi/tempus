@@ -7,11 +7,11 @@ async fn connect() -> Result<DatabaseConnection, DbErr> {
     let mut connection_options = ConnectOptions::new(dotenvy::var("DATABASE_URL").unwrap());
     connection_options
         .max_connections(100)
-        .min_connections(5)
+        .min_connections(30)
         .connect_timeout(Duration::from_secs(8))
         .acquire_timeout(Duration::from_secs(8))
-        .idle_timeout(Duration::from_secs(8))
-        .max_lifetime(Duration::from_secs(8))
+        .idle_timeout(Duration::from_secs(60))
+        .max_lifetime(Duration::from_secs(60))
         .sqlx_logging(true)
         .sqlx_logging_level(log::LevelFilter::Debug);
 

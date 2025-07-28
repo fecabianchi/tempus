@@ -2544,6 +2544,7 @@ dependencies = [
  "dotenvy",
  "env_logger",
  "log",
+ "once_cell",
  "reqwest",
  "sea-orm",
  "serde_json",

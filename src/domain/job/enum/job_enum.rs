@@ -6,6 +6,7 @@ pub enum JobType {
 #[derive(Debug, Clone)]
 pub enum JobMetadataStatus {
     Scheduled,
+    Processing,
     Completed,
     Deleted,
     Failed,
