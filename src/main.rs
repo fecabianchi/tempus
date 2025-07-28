@@ -7,6 +7,7 @@ use crate::engine::TempusEngine;
 use crate::engine::TempusEnginePort;
 use log::info;
 use std::error::Error;
+use tokio::signal;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -28,7 +29,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
     "#;
 
     info!("{}", logo.to_ascii_lowercase());
-    TempusEngine.start().await;
+    
+    let engine = TempusEngine::new();
+    
+    tokio::select! {
+        _ = engine.start() => {
+            info!("Engine stopped");
+        }
+        _ = signal::ctrl_c() => {
+            info!("Received SIGINT (Ctrl+C), initiating graceful shutdown...");
+            engine.shutdown().await;
+        }
+        _ = async {
+            #[cfg(unix)]
+            {
+                use tokio::signal::unix::{signal, SignalKind};
+                let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+                term.recv().await;
+            }
+            #[cfg(not(unix))]
+            {
+                std::future::pending::<()>().await;
+            }
+        } => {
+            info!("Received SIGTERM, initiating graceful shutdown...");
+            engine.shutdown().await;
+        }
+    }
 
     Ok(())
 }
