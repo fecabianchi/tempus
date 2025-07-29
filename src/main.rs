@@ -29,9 +29,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     "#;
 
     info!("{}", logo.to_ascii_lowercase());
-    
+
     let engine = TempusEngine::new();
-    
+
     tokio::select! {
         _ = engine.start() => {
             info!("Engine stopped");
@@ -41,16 +41,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             engine.shutdown().await;
         }
         _ = async {
-            #[cfg(unix)]
-            {
-                use tokio::signal::unix::{signal, SignalKind};
-                let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
-                term.recv().await;
-            }
-            #[cfg(not(unix))]
-            {
-                std::future::pending::<()>().await;
-            }
+            use tokio::signal::unix::{signal, SignalKind};
+            let mut term = signal(SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+            term.recv().await;
         } => {
             info!("Received SIGTERM, initiating graceful shutdown...");
             engine.shutdown().await;
