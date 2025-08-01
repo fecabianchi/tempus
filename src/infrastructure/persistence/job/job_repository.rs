@@ -4,6 +4,7 @@ use crate::infrastructure::persistence::job::prelude::Job;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
 use crate::infrastructure::persistence::job::{job, job_metadata};
 use chrono::Utc;
+use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::prelude::Uuid;
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, EntityTrait,
@@ -20,6 +21,7 @@ impl JobRepository {
     }
 }
 
+#[async_trait]
 impl JobRepositoryPort for JobRepository {
     async fn find_all(&self) -> Result<Vec<JobEntity>, DbErr> {
         let rows = Job::find()
