@@ -2,7 +2,10 @@ use sea_orm::prelude::SeaRc;
 use sea_orm::{DbErr, DeriveIden, DeriveMigrationName, EnumIter, Iterable};
 use sea_orm_migration::prelude::extension::postgres::Type;
 use sea_orm_migration::prelude::{ForeignKey, Table};
-use sea_orm_migration::schema::{date_time, date_time_null, enumeration, json_binary, pk_uuid, string, string_null, timestamps};
+use sea_orm_migration::schema::{
+    date_time, date_time_null, enumeration, integer, json_binary, pk_uuid, string, string_null,
+    timestamps,
+};
 use sea_orm_migration::{async_trait, MigrationTrait, SchemaManager};
 
 #[derive(DeriveMigrationName)]
@@ -35,6 +38,7 @@ impl MigrationTrait for Migration {
                     .table(Job::Table)
                     .if_not_exists()
                     .col(pk_uuid(Job::Id))
+                    .col(integer(Job::Retries).default(0))
                     .col(date_time(Job::Time))
                     .col(string(Job::Target))
                     .col(json_binary(Job::Payload))
@@ -110,6 +114,7 @@ enum Job {
     Table,
     Id,
     Time,
+    Retries,
     Target,
     Type,
     Payload,

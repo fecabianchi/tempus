@@ -10,6 +10,7 @@ pub struct Model {
     pub id: Uuid,
     pub time: DateTime,
     pub target: String,
+    pub retries: i32,
     #[sea_orm(column_type = "JsonBinary")]
     pub payload: Json,
     pub r#type: ScheduleTypeEnum,

@@ -14,6 +14,7 @@ pub struct JobEntity {
     pub id: Uuid,
     pub time: NaiveDateTime,
     pub target: String,
+    pub retries: i32,
     pub r#type: JobType,
     pub payload: JsonValue,
     pub metadata: Option<JobMetadataEntity>,
@@ -27,6 +28,7 @@ impl From<(job::Model, Option<Model>)> for JobEntity {
             id: job_model.id,
             time: job_model.time,
             target: job_model.target,
+            retries: job_model.retries,
             r#type: match job_model.r#type {
                 ScheduleTypeEnum::Http => JobType::Http,
             },
