@@ -4,7 +4,7 @@ use crate::domain::job::port::driven::job_metadata_repository_port::JobMetadataR
 use crate::infrastructure::persistence::job::job_metadata;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
 use sea_orm::prelude::async_trait::async_trait;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 #[derive(Clone)]
 pub struct JobMetadataRepository {
@@ -19,7 +19,7 @@ impl JobMetadataRepository {
 
 #[async_trait]
 impl JobMetadataRepositoryPort for JobMetadataRepository {
-    async fn update_status(&self, job_metadata: JobMetadataEntity) -> () {
+    async fn update_status(&self, job_metadata: JobMetadataEntity) -> Result<(), DbErr> {
         let to_update = job_metadata::ActiveModel {
             job_id: sea_orm::Set(job_metadata.job_id),
             status: sea_orm::Set(to_model_status(job_metadata.status)),
@@ -29,8 +29,9 @@ impl JobMetadataRepositoryPort for JobMetadataRepository {
 
         job_metadata::Entity::update(to_update)
             .exec(&self.db)
-            .await
-            .expect("Failed to update metadata");
+            .await?;
+            
+        Ok(())
     }
 }
 

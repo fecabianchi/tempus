@@ -1,15 +1,19 @@
 use crate::domain::job::entity::job_entity::JobEntity;
+use crate::domain::job::entity::job_metadata_entity::JobMetadataEntity;
+use crate::domain::job::r#enum::job_enum::JobMetadataStatus;
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::infrastructure::persistence::job::prelude::Job;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
 use crate::infrastructure::persistence::job::{job, job_metadata};
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use sea_orm::prelude::Uuid;
+use sea_orm::prelude::async_trait::async_trait;
 use sea_orm::{
-    ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr, EntityTrait,
-    QueryFilter, Statement, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr,
+    EntityTrait, IntoActiveModel, QueryFilter, Set, Statement, TransactionTrait,
 };
 
+#[derive(Clone)]
 pub struct JobRepository {
     db: DatabaseConnection,
 }
@@ -20,6 +24,7 @@ impl JobRepository {
     }
 }
 
+#[async_trait]
 impl JobRepositoryPort for JobRepository {
     async fn find_all(&self) -> Result<Vec<JobEntity>, DbErr> {
         let rows = Job::find()
@@ -33,30 +38,29 @@ impl JobRepositoryPort for JobRepository {
 
         Ok(jobs)
     }
-
     async fn find_and_flag_processing(&self) -> Result<Vec<JobEntity>, DbErr> {
         let txn = self.db.begin().await?;
 
         let sql = r#"
-            UPDATE job_metadata
-            SET status = 'processing'
-            WHERE job_id IN (
-                SELECT job.id
-                FROM job
-                INNER JOIN job_metadata ON job.id = job_metadata.job_id
-                WHERE job.time <= NOW()
-                  AND job_metadata.status = 'scheduled'
-                FOR UPDATE SKIP LOCKED
-                LIMIT $1
-            )
-            RETURNING job_id
+        UPDATE job_metadata
+        SET status = 'processing'
+        WHERE job_id IN (
+            SELECT job.id
+            FROM job
+            INNER JOIN job_metadata ON job.id = job_metadata.job_id
+            WHERE job_metadata.status = 'scheduled' AND job.time <= NOW() AND job.retries < 3
+        ORDER BY job.time ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT $1
+        )
+        RETURNING job_id
         "#;
 
         let rows = txn
             .query_all(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 sql,
-                vec![500.into()],
+                vec![50.into()],
             ))
             .await?;
 
@@ -79,5 +83,64 @@ impl JobRepositoryPort for JobRepository {
         txn.commit().await?;
 
         Ok(jobs.into_iter().map(JobEntity::from).collect())
+    }
+
+    async fn increment_retry(&self, job_id: Uuid) -> Result<(), DbErr> {
+        if let Some(job) = Job::find_by_id(job_id).one(&self.db).await? {
+            let mut active_model = job.into_active_model();
+            active_model.retries = Set(active_model.retries.unwrap() + 1);
+            active_model.update(&self.db).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn update_time(&self, job_id: Uuid, time: NaiveDateTime) -> Result<(), DbErr> {
+        if let Some(model) = Job::find()
+            .filter(job::Column::Id.eq(job_id))
+            .one(&self.db)
+            .await?
+        {
+            let mut active_model = model.into_active_model();
+            active_model.time = Set(time);
+            active_model.update(&self.db).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn handle_retry_transaction(&self, job_id: Uuid, new_time: NaiveDateTime, retry_metadata: JobMetadataEntity) -> Result<(), DbErr> {
+        let txn = self.db.begin().await?;
+
+        if let Some(job) = Job::find_by_id(job_id).one(&txn).await? {
+            let mut active_model = job.into_active_model();
+            active_model.retries = Set(active_model.retries.unwrap() + 1);
+            active_model.time = Set(new_time);
+            active_model.update(&txn).await?;
+        }
+
+        let to_update = job_metadata::ActiveModel {
+            job_id: Set(retry_metadata.job_id),
+            status: Set(to_model_status(retry_metadata.status)),
+            processed_at: Set(retry_metadata.processed_at),
+            failure: Set(retry_metadata.failure),
+        };
+
+        job_metadata::Entity::update(to_update)
+            .exec(&txn)
+            .await?;
+
+        txn.commit().await?;
+        Ok(())
+    }
+}
+
+fn to_model_status(status: JobMetadataStatus) -> JobStatusEnum {
+    match status {
+        JobMetadataStatus::Scheduled => JobStatusEnum::Scheduled,
+        JobMetadataStatus::Processing => JobStatusEnum::Processing,
+        JobMetadataStatus::Completed => JobStatusEnum::Completed,
+        JobMetadataStatus::Deleted => JobStatusEnum::Deleted,
+        JobMetadataStatus::Failed => JobStatusEnum::Failed,
     }
 }

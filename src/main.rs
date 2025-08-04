@@ -1,15 +1,16 @@
 mod config;
 mod domain;
 mod engine;
+mod error;
 mod infrastructure;
 
 use crate::engine::TempusEngine;
 use crate::engine::TempusEnginePort;
+use crate::error::Result;
 use log::info;
-use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     dotenvy::dotenv()?;
     env_logger::init();
 
@@ -28,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     "#;
 
     info!("{}", logo.to_ascii_lowercase());
-    TempusEngine.start().await;
+    TempusEngine::new()?.start().await?;
 
     Ok(())
 }
