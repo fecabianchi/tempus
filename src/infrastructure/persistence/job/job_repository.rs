@@ -1,4 +1,6 @@
 use crate::domain::job::entity::job_entity::JobEntity;
+use crate::domain::job::entity::job_metadata_entity::JobMetadataEntity;
+use crate::domain::job::r#enum::job_enum::JobMetadataStatus;
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::infrastructure::persistence::job::prelude::Job;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
@@ -105,5 +107,40 @@ impl JobRepositoryPort for JobRepository {
         }
 
         Ok(())
+    }
+
+    async fn handle_retry_transaction(&self, job_id: Uuid, new_time: NaiveDateTime, retry_metadata: JobMetadataEntity) -> Result<(), DbErr> {
+        let txn = self.db.begin().await?;
+
+        if let Some(job) = Job::find_by_id(job_id).one(&txn).await? {
+            let mut active_model = job.into_active_model();
+            active_model.retries = Set(active_model.retries.unwrap() + 1);
+            active_model.time = Set(new_time);
+            active_model.update(&txn).await?;
+        }
+
+        let to_update = job_metadata::ActiveModel {
+            job_id: Set(retry_metadata.job_id),
+            status: Set(to_model_status(retry_metadata.status)),
+            processed_at: Set(retry_metadata.processed_at),
+            failure: Set(retry_metadata.failure),
+        };
+
+        job_metadata::Entity::update(to_update)
+            .exec(&txn)
+            .await?;
+
+        txn.commit().await?;
+        Ok(())
+    }
+}
+
+fn to_model_status(status: JobMetadataStatus) -> JobStatusEnum {
+    match status {
+        JobMetadataStatus::Scheduled => JobStatusEnum::Scheduled,
+        JobMetadataStatus::Processing => JobStatusEnum::Processing,
+        JobMetadataStatus::Completed => JobStatusEnum::Completed,
+        JobMetadataStatus::Deleted => JobStatusEnum::Deleted,
+        JobMetadataStatus::Failed => JobStatusEnum::Failed,
     }
 }

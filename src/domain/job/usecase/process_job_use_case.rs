@@ -89,24 +89,16 @@ where
     if should_retry(current_retries, config.engine.retry_attempts) {
         info!("Retrying job {} (attempt {}/{})", job.id, current_retries + 1, config.engine.retry_attempts);
         
-        job_repository
-            .increment_retry(job.id)
-            .await
-            .map_err(TempusError::Database)?;
-            
-        job_repository
-            .update_time(job.id, backoff(job.time, current_retries + 1, config.engine.base_delay_minutes))
-            .await
-            .map_err(TempusError::Database)?;
-        
+        let new_time = backoff(job.time, current_retries + 1, config.engine.base_delay_minutes);
         let retry_metadata = JobMetadataEntity {
             job_id: job_metadata.job_id,
             status: JobMetadataStatus::Scheduled,
             failure: None,
             processed_at: None,
         };
-        job_metadata_repository
-            .update_status(retry_metadata)
+
+        job_repository
+            .handle_retry_transaction(job.id, new_time, retry_metadata)
             .await
             .map_err(TempusError::Database)?;
     } else {
