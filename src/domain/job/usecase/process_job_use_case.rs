@@ -54,10 +54,7 @@ where
 }
 
 fn should_retry(retries: i32) -> bool {
-    if (retries >= 3) {
-        return false;
-    }
-    true
+    retries < 3
 }
 
 fn backoff(time: NaiveDateTime, retries: i32) -> NaiveDateTime {
@@ -75,15 +72,24 @@ async fn handle_failure<JR, JMR>(
     JR: JobRepositoryPort + Send + Sync,
     JMR: JobMetadataRepositoryPort + Send + Sync,
 {
-    if (should_retry(&job.retries + 1)) {
+    let current_retries = job.retries;
+    if should_retry(current_retries) {
         job_repository
             .increment_retry(job.id)
             .await
             .expect("TODO: panic message");
         job_repository
-            .update_time(job.id, backoff(job.time, job.retries + 1))
+            .update_time(job.id, backoff(job.time, current_retries + 1))
             .await
             .expect("");
+        
+        let retry_metadata = JobMetadataEntity {
+            job_id: job_metadata.job_id,
+            status: JobMetadataStatus::Scheduled,
+            failure: None,
+            processed_at: None,
+        };
+        job_metadata_repository.update_status(retry_metadata).await;
     } else {
         let failed_metadata = JobMetadataEntity {
             job_id: job_metadata.job_id,

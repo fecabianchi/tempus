@@ -46,11 +46,7 @@ impl JobRepositoryPort for JobRepository {
             SELECT job.id
             FROM job
             INNER JOIN job_metadata ON job.id = job_metadata.job_id
-            WHERE (
-                (job_metadata.status = 'scheduled' AND job.time <= NOW())
-                OR
-                (job_metadata.status = 'processing' AND job.retries < 3 AND job.time <= NOW())
-            )
+            WHERE job_metadata.status = 'scheduled' AND job.time <= NOW() AND job.retries < 3
         ORDER BY job.time ASC
         FOR UPDATE SKIP LOCKED
         LIMIT $1
