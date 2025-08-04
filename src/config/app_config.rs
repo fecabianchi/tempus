@@ -1,5 +1,5 @@
 use crate::error::{Result, TempusError};
-use config::{Config, ConfigError, Environment};
+use config::{Config, ConfigError, Environment, File};
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -48,7 +48,7 @@ impl AppConfig {
             .set_default("engine.base_delay_minutes", 2)?
             .set_default("http.pool_idle_timeout_secs", 30)?
             .set_default("http.request_timeout_secs", 30)?
-            .add_source(Environment::with_prefix("TEMPUS").separator("_"))
+            .add_source(Environment::default().separator("_"))
             .build()
             .map_err(|e| TempusError::Config(e.to_string()))?;
 
@@ -62,21 +62,23 @@ impl AppConfig {
 
     fn validate(&self) -> Result<()> {
         if self.database.url.is_empty() {
-            return Err(TempusError::Validation("Database URL cannot be empty".to_string()));
+            return Err(TempusError::Validation(
+                "Database URL cannot be empty".to_string(),
+            ));
         }
-        
+
         if self.database.max_connections < self.database.min_connections {
             return Err(TempusError::Validation(
-                "Max connections cannot be less than min connections".to_string()
+                "Max connections cannot be less than min connections".to_string(),
             ));
         }
-        
+
         if self.engine.max_concurrent_jobs == 0 {
             return Err(TempusError::Validation(
-                "Max concurrent jobs must be greater than 0".to_string()
+                "Max concurrent jobs must be greater than 0".to_string(),
             ));
         }
-        
+
         Ok(())
     }
 }
@@ -91,15 +93,15 @@ impl DatabaseConfig {
     pub fn connect_timeout(&self) -> Duration {
         Duration::from_secs(self.connect_timeout_secs)
     }
-    
+
     pub fn acquire_timeout(&self) -> Duration {
         Duration::from_secs(self.acquire_timeout_secs)
     }
-    
+
     pub fn idle_timeout(&self) -> Duration {
         Duration::from_secs(self.idle_timeout_secs)
     }
-    
+
     pub fn max_lifetime(&self) -> Duration {
         Duration::from_secs(self.max_lifetime_secs)
     }
@@ -109,7 +111,7 @@ impl HttpConfig {
     pub fn pool_idle_timeout(&self) -> Duration {
         Duration::from_secs(self.pool_idle_timeout_secs)
     }
-    
+
     pub fn request_timeout(&self) -> Duration {
         Duration::from_secs(self.request_timeout_secs)
     }

@@ -58,7 +58,7 @@ impl JobRepositoryPort for JobRepository {
             .query_all(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 sql,
-                vec![500.into()],
+                vec![50.into()],
             ))
             .await?;
 
