@@ -28,7 +28,7 @@ impl TempusEngine {
 
 impl TempusEnginePort for TempusEngine {
     async fn start(&self) -> Result<()> {
-        info!("Starting Tempus Engine with graceful shutdown support");
+        info!("Starting Tempus Engine");
         
         let database = connect_with_retry(&self.config).await?;
         let job_repository = JobRepository::new(database.clone());
