@@ -8,17 +8,17 @@ Tempus is a minimalist, blazing-fast, and scalable scheduler designed to handle 
 
 ## Features
 
-- ✅ **Reliable Job Execution**: Execute scheduled jobs with built-in retry mechanisms and failure handling
-- ✅ **Multi-Protocol Support**: Support for both HTTP webhooks and Kafka message publishing
-- ✅ **RESTful API**: Complete CRUD operations for job management via HTTP API
-- ✅ **Database Persistence**: PostgreSQL integration with Sea-ORM for reliable job storage
-- ✅ **Job Rescheduling**: Update job execution times dynamically via API
-- ✅ **Concurrent Processing**: Multi-threaded job processing with configurable concurrency limits  
-- ✅ **Retry Logic**: Configurable retry attempts with exponential backoff for failed jobs
-- ✅ **Job Status Tracking**: Complete job lifecycle management (Scheduled, Processing, Completed, Failed, Deleted)
-- ✅ **Graceful Shutdown**: Signal handling for clean shutdown with running job completion
-- ✅ **Configuration Management**: Environment-based configuration with sensible defaults
-- ✅ **Structured Logging**: Comprehensive logging for monitoring and debugging
+- ⚡ **Reliable Job Execution**: Execute scheduled jobs with built-in retry mechanisms and failure handling
+- 🌐 **Multi-Protocol Support**: Support for both HTTP webhooks and Kafka message publishing
+- 🔗 **RESTful API**: Complete CRUD operations for job management via HTTP API
+- 💾 **Database Persistence**: PostgreSQL integration with Sea-ORM for reliable job storage
+- 📅 **Job Rescheduling**: Update job execution times dynamically via API
+- 🚀 **Concurrent Processing**: Multi-threaded job processing with configurable concurrency limits  
+- 🔄 **Retry Logic**: Configurable retry attempts with exponential backoff for failed jobs
+- 📊 **Job Status Tracking**: Complete job lifecycle management (Scheduled, Processing, Completed, Failed, Deleted)
+- 🛑 **Graceful Shutdown**: Signal handling for clean shutdown with running job completion
+- ⚙️ **Configuration Management**: Environment-based configuration with sensible defaults
+- 📝 **Structured Logging**: Comprehensive logging for monitoring and debugging
 
 ## Goals
 
