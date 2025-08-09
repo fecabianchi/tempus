@@ -1,0 +1,21 @@
+meta {
+  name: Reschedule Job
+  type: http
+  seq: 4
+}
+
+patch {
+  url: http://localhost:3000/jobs/b4c7c8b2-adaf-4d95-be38-cf3e602cf7ac
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "time": "2025-08-08T02:00:00"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

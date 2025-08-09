@@ -19,11 +19,10 @@ impl<R: JobRepositoryPort> CreateJobUseCase<R> {
     pub async fn execute(&self, request: CreateJobRequest) -> Result<CreateJobResponse> {
         let job_type = self.parse_job_type(&request.job_type)?;
         let job_id = Uuid::new_v4();
-        let scheduled_time = request.time.unwrap_or_else(|| Utc::now().naive_utc());
 
         let job_entity = JobEntity {
             id: job_id,
-            time: scheduled_time,
+            time: request.time,
             target: request.target,
             retries: 0,
             r#type: job_type,
@@ -57,7 +56,7 @@ impl<R: JobRepositoryPort> CreateJobUseCase<R> {
 #[derive(Debug)]
 pub struct CreateJobRequest {
     pub target: String,
-    pub time: Option<NaiveDateTime>,
+    pub time: NaiveDateTime,
     pub job_type: String,
     pub payload: sea_orm::JsonValue,
 }

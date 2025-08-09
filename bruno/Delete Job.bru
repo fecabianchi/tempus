@@ -1,0 +1,25 @@
+meta {
+  name: Delete Job
+  type: http
+  seq: 3
+}
+
+delete {
+  url: http://localhost:3000/jobs
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+  "type": "kafka",
+    "target": "tp_tempus",
+    "payload": {
+      "success": true
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+}
