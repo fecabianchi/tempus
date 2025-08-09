@@ -20,18 +20,6 @@ Tempus is a minimalist, blazing-fast, and scalable scheduler designed to handle 
 - ⚙️ **Configuration Management**: Environment-based configuration with sensible defaults
 - 📝 **Structured Logging**: Comprehensive logging for monitoring and debugging
 
-## Goals
-
-Tempus aims to:
-
-- Execute scheduled jobs reliably  
-- Support HTTP and Kafka messaging out of the box  
-- Be extensible to support other communication protocols (e.g., via plugin system or trait-based abstractions)  
-- Expose a minimal yet expressive API  
-- Be easy to integrate into any system  
-- Deliver high performance with low resource usage  
-- Scale horizontally and vertically with minimal effort
-
 ## Architecture
 
 Tempus is built using a clean hexagonal architecture with clear separation of concerns:
