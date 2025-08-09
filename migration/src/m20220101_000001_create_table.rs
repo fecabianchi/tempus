@@ -138,4 +138,5 @@ struct ScheduleTypeEnum;
 #[derive(DeriveIden, EnumIter)]
 pub enum ScheduleType {
     Http,
+    Kafka,
 }

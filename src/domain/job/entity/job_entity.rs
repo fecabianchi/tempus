@@ -31,6 +31,7 @@ impl From<(job::Model, Option<Model>)> for JobEntity {
             retries: job_model.retries,
             r#type: match job_model.r#type {
                 ScheduleTypeEnum::Http => JobType::Http,
+                ScheduleTypeEnum::Kafka => JobType::Kafka,
             },
             payload: job_model.payload,
             metadata: match job_metadata_model {

@@ -21,4 +21,6 @@ pub enum JobStatusEnum {
 pub enum ScheduleTypeEnum {
     #[sea_orm(string_value = "http")]
     Http,
+    #[sea_orm(string_value = "kafka")]
+    Kafka,
 }

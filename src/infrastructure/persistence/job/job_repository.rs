@@ -147,6 +147,7 @@ impl JobRepositoryPort for JobRepository {
             retries: Set(job_entity.retries),
             r#type: Set(match job_entity.r#type {
                 JobType::Http => ScheduleTypeEnum::Http,
+                JobType::Kafka => ScheduleTypeEnum::Kafka,
             }),
             payload: Set(job_entity.payload.clone()),
             created_at: Set(Utc::now().naive_utc()),
