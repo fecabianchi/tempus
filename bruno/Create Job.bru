@@ -6,8 +6,18 @@ meta {
 
 post {
   url: http://localhost:3000/jobs
-  body: none
+  body: json
   auth: inherit
+}
+
+body:json {
+  {
+  "type": "kafka",
+    "target": "tp_tempus",
+    "payload": {
+      "success": true
+    }
+  }
 }
 
 settings {

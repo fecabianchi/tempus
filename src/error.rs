@@ -25,6 +25,9 @@ pub enum TempusError {
     
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    
+    #[error("Kafka error: {0}")]
+    Kafka(String),
 }
 
 pub type Result<T> = std::result::Result<T, TempusError>;

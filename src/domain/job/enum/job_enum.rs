@@ -1,6 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum JobType {
-    Http
+    Http,
+    Kafka
 }
 
 #[derive(Debug, Clone)]

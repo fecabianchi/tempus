@@ -6,6 +6,7 @@ use crate::domain::job::port::driven::job_metadata_repository_port::JobMetadataR
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::domain::job::port::driver::process_job_use_case_port::ProcessJobUseCasePort;
 use crate::error::{Result, TempusError};
+use crate::infrastructure::kafka::kafka_publisher::publish_kafka_message;
 use chrono::{NaiveDateTime, Utc};
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
@@ -174,6 +175,31 @@ where
                                 }
                                 Err(e) => {
                                     error!("Job {} failed: {}", job.id, e);
+                                    handle_failure(
+                                        inner_job,
+                                        metadata,
+                                        job_repository,
+                                        job_metadata_repository,
+                                        e.to_string(),
+                                        &config,
+                                    ).await
+                                }
+                            }
+                        }
+                    },
+                    JobType::Kafka => match job.metadata {
+                        None => {
+                            warn!("Metadata is missing for jobId: {}", &job.id);
+                            Err(TempusError::JobProcessing("Missing job metadata".to_string()))
+                        }
+                        Some(metadata) => {
+                            match publish_kafka_message(job_target, job_payload).await {
+                                Ok(_) => {
+                                    info!("Kafka job {} completed successfully", job.id);
+                                    handle_success(metadata, job_metadata_repository).await
+                                }
+                                Err(e) => {
+                                    error!("Kafka job {} failed: {}", job.id, e);
                                     handle_failure(
                                         inner_job,
                                         metadata,

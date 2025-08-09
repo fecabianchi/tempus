@@ -44,6 +44,7 @@ impl<R: JobRepositoryPort> CreateJobUseCase<R> {
 
     fn parse_job_type(&self, job_type_str: &str) -> Result<JobType> {
         match job_type_str.to_lowercase().as_str() {
+            "kafka" => Ok(JobType::Kafka),
             "http" => Ok(JobType::Http),
             _ => Err(TempusError::Validation(format!(
                 "Invalid job type: {}. Supported types: http", 

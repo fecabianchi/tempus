@@ -1,5 +1,5 @@
 use crate::error::{Result, TempusError};
-use config::{Config, ConfigError, Environment, File};
+use config::{Config, ConfigError, Environment};
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub database: DatabaseConfig,
     pub engine: EngineConfig,
     pub http: HttpConfig,
+    pub kafka: KafkaConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -35,6 +36,16 @@ pub struct HttpConfig {
     pub request_timeout_secs: u64,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct KafkaConfig {
+    pub bootstrap_servers: String,
+    pub default_topic: String,
+    pub producer_timeout_secs: u64,
+    pub producer_retries: u32,
+    pub batch_size: u32,
+    pub compression_type: String,
+}
+
 impl AppConfig {
     pub fn load() -> Result<Self> {
         let config = Config::builder()
@@ -50,6 +61,12 @@ impl AppConfig {
             .set_default("http.pool_idle_timeout_secs", 30)?
             .set_default("http.request_timeout_secs", 30)?
             .set_default("http.port", 3000)?
+            .set_default("kafka.bootstrap_servers", "localhost:9092")?
+            .set_default("kafka.default_topic", "tempus-events")?
+            .set_default("kafka.producer_timeout_secs", 30)?
+            .set_default("kafka.producer_retries", 5)?
+            .set_default("kafka.batch_size", 16384)?
+            .set_default("kafka.compression_type", "snappy")?
             .add_source(Environment::default().separator("_"))
             .build()
             .map_err(|e| TempusError::Config(e.to_string()))?;
@@ -78,6 +95,18 @@ impl AppConfig {
         if self.engine.max_concurrent_jobs == 0 {
             return Err(TempusError::Validation(
                 "Max concurrent jobs must be greater than 0".to_string(),
+            ));
+        }
+
+        if self.kafka.bootstrap_servers.is_empty() {
+            return Err(TempusError::Validation(
+                "Kafka bootstrap servers cannot be empty".to_string(),
+            ));
+        }
+
+        if self.kafka.default_topic.is_empty() {
+            return Err(TempusError::Validation(
+                "Kafka default topic cannot be empty".to_string(),
             ));
         }
 
@@ -116,5 +145,11 @@ impl HttpConfig {
 
     pub fn request_timeout(&self) -> Duration {
         Duration::from_secs(self.request_timeout_secs)
+    }
+}
+
+impl KafkaConfig {
+    pub fn producer_timeout(&self) -> Duration {
+        Duration::from_secs(self.producer_timeout_secs)
     }
 }
