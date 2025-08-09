@@ -30,6 +30,7 @@ pub struct EngineConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct HttpConfig {
+    pub port: u16,
     pub pool_idle_timeout_secs: u64,
     pub request_timeout_secs: u64,
 }
@@ -48,6 +49,7 @@ impl AppConfig {
             .set_default("engine.base_delay_minutes", 2)?
             .set_default("http.pool_idle_timeout_secs", 30)?
             .set_default("http.request_timeout_secs", 30)?
+            .set_default("http.port", 3000)?
             .add_source(Environment::default().separator("_"))
             .build()
             .map_err(|e| TempusError::Config(e.to_string()))?;

@@ -3,6 +3,10 @@ name = "tempus"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "tempus"
+path = "src/lib.rs"
+
 [dependencies]
 dotenvy = { version = "0.15.7" }
 reqwest = { version = "0.12", features = ["json"] }
@@ -17,6 +21,19 @@ once_cell = "1.21.3"
 thiserror = "2.0.12"
 config = "0.15.13"
 serde = { version = "1.0", features = ["derive"] }
+axum = { version = "0.7", features = ["json"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+validator = { version = "0.18", features = ["derive"] }
+
+[[bin]]
+name = "tempus"
+path = "src/main.rs"
+
+[[bin]]
+name = "tempus-api"
+path = "src/main-api.rs"
 
 [dev-dependencies]
 mockall = "0.13"

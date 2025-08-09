@@ -1,9 +1,11 @@
 use crate::domain::job::entity::job_entity::JobEntity;
 use crate::domain::job::entity::job_metadata_entity::JobMetadataEntity;
 use crate::domain::job::r#enum::job_enum::JobMetadataStatus;
+use crate::domain::job::r#enum::job_enum::JobType;
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::infrastructure::persistence::job::prelude::Job;
 use crate::infrastructure::persistence::job::sea_orm_active_enums::JobStatusEnum;
+use crate::infrastructure::persistence::job::sea_orm_active_enums::ScheduleTypeEnum;
 use crate::infrastructure::persistence::job::{job, job_metadata};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::prelude::Uuid;
@@ -109,7 +111,12 @@ impl JobRepositoryPort for JobRepository {
         Ok(())
     }
 
-    async fn handle_retry_transaction(&self, job_id: Uuid, new_time: NaiveDateTime, retry_metadata: JobMetadataEntity) -> Result<(), DbErr> {
+    async fn handle_retry_transaction(
+        &self,
+        job_id: Uuid,
+        new_time: NaiveDateTime,
+        retry_metadata: JobMetadataEntity,
+    ) -> Result<(), DbErr> {
         let txn = self.db.begin().await?;
 
         if let Some(job) = Job::find_by_id(job_id).one(&txn).await? {
@@ -126,9 +133,37 @@ impl JobRepositoryPort for JobRepository {
             failure: Set(retry_metadata.failure),
         };
 
-        job_metadata::Entity::update(to_update)
-            .exec(&txn)
-            .await?;
+        job_metadata::Entity::update(to_update).exec(&txn).await?;
+
+        txn.commit().await?;
+        Ok(())
+    }
+
+    async fn save(&self, job_entity: &JobEntity) -> Result<(), DbErr> {
+        let job_active_model = job::ActiveModel {
+            id: Set(job_entity.id),
+            time: Set(job_entity.time),
+            target: Set(job_entity.target.clone()),
+            retries: Set(job_entity.retries),
+            r#type: Set(match job_entity.r#type {
+                JobType::Http => ScheduleTypeEnum::Http,
+            }),
+            payload: Set(job_entity.payload.clone()),
+            created_at: Set(Utc::now().naive_utc()),
+            updated_at: Set(Utc::now().naive_utc()),
+        };
+
+        let job_metadata_active_model = job_metadata::ActiveModel {
+            job_id: Set(job_entity.id),
+            status: Set(JobStatusEnum::Scheduled),
+            processed_at: Set(None),
+            failure: Set(None),
+        };
+
+        let txn = self.db.begin().await?;
+
+        job_active_model.insert(&txn).await?;
+        job_metadata_active_model.insert(&txn).await?;
 
         txn.commit().await?;
         Ok(())
