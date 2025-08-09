@@ -22,6 +22,10 @@ impl ApiError {
         Self::new("bad_request", message)
     }
     
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new("not_found", message)
+    }
+    
     pub fn internal_error(message: impl Into<String>) -> Self {
         Self::new("internal_error", message)
     }

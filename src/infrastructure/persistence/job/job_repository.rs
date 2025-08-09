@@ -169,6 +169,52 @@ impl JobRepositoryPort for JobRepository {
         txn.commit().await?;
         Ok(())
     }
+
+    async fn delete_unprocessed(&self, job_id: Uuid) -> Result<bool, DbErr> {
+        let txn = self.db.begin().await?;
+
+        let job_metadata_result = job_metadata::Entity::find()
+            .filter(job_metadata::Column::JobId.eq(job_id))
+            .filter(job_metadata::Column::Status.eq(JobStatusEnum::Scheduled))
+            .one(&txn)
+            .await?;
+
+        if job_metadata_result.is_none() {
+            txn.rollback().await?;
+            return Ok(false);
+        }
+
+        job_metadata::Entity::delete_by_id(job_id).exec(&txn).await?;
+        Job::delete_by_id(job_id).exec(&txn).await?;
+
+        txn.commit().await?;
+        Ok(true)
+    }
+
+    async fn update_time_unprocessed(&self, job_id: Uuid, time: NaiveDateTime) -> Result<bool, DbErr> {
+        let txn = self.db.begin().await?;
+
+        let job_metadata_result = job_metadata::Entity::find()
+            .filter(job_metadata::Column::JobId.eq(job_id))
+            .filter(job_metadata::Column::Status.eq(JobStatusEnum::Scheduled))
+            .one(&txn)
+            .await?;
+
+        if job_metadata_result.is_none() {
+            txn.rollback().await?;
+            return Ok(false);
+        }
+
+        if let Some(job) = Job::find_by_id(job_id).one(&txn).await? {
+            let mut active_model = job.into_active_model();
+            active_model.time = Set(time);
+            active_model.updated_at = Set(Utc::now().naive_utc());
+            active_model.update(&txn).await?;
+        }
+
+        txn.commit().await?;
+        Ok(true)
+    }
 }
 
 fn to_model_status(status: JobMetadataStatus) -> JobStatusEnum {

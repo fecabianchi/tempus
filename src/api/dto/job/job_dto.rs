@@ -8,7 +8,7 @@ use validator::Validate;
 pub struct CreateJobRequest {
     #[validate(length(min = 1))]
     pub target: String,
-    pub time: Option<NaiveDateTime>,
+    pub time: NaiveDateTime,
     #[serde(rename = "type")]
     pub job_type: String,
     pub payload: JsonValue,
@@ -18,4 +18,9 @@ pub struct CreateJobRequest {
 pub struct CreateJobResponse {
     pub id: Uuid,
     pub message: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct UpdateJobTimeRequest {
+    pub time: NaiveDateTime,
 }

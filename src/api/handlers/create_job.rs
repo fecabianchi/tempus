@@ -78,7 +78,7 @@ mod tests {
     fn test_request_conversion() {
         let api_request = CreateJobRequest {
             target: "https://example.com".to_string(),
-            time: Some(Utc::now().naive_utc()),
+            time: Utc::now().naive_utc(),
             job_type: "http".to_string(),
             payload: JsonValue::Null,
         };
