@@ -1,6 +1,5 @@
 use serde::Serialize;
 
-/// API error response structure
 #[derive(Debug, Serialize)]
 pub struct ApiError {
     pub error: String,
