@@ -19,6 +19,7 @@ Tempus is a minimalist, blazing-fast, and scalable scheduler designed to handle 
 - 🛑 **Graceful Shutdown**: Signal handling for clean shutdown with running job completion
 - ⚙️ **Configuration Management**: Environment-based configuration with sensible defaults
 - 📝 **Structured Logging**: Comprehensive logging for monitoring and debugging
+- 📊 **Prometheus Metrics**: Built-in metrics collection and export for monitoring and observability
 
 ## Architecture
 
@@ -61,6 +62,8 @@ cargo run --bin tempus
 ```bash
 cargo run --bin tempus-api
 ```
+
+The engine will expose metrics on `http://localhost:3001/metrics` and the API will be available on `http://localhost:3000`.
 
 ## API Usage
 
@@ -109,6 +112,41 @@ curl -X PATCH http://localhost:3000/jobs/{job_id}/time \
 
 ```bash
 curl -X DELETE http://localhost:3000/jobs/{job_id}
+```
+
+## Metrics and Monitoring
+
+Tempus provides comprehensive Prometheus metrics for monitoring job execution and system performance. All metrics are exposed by the engine on port 3001.
+
+### Available Metrics
+
+- **`jobs_processed_total{status}`**: Counter of processed jobs by status (success, failure, retry)
+- **`jobs_duration_seconds`**: Histogram of job execution duration
+- **`jobs_http_requests_total{status_code}`**: Counter of HTTP requests made by jobs
+- **`jobs_kafka_messages_total`**: Counter of Kafka messages published
+- **`current_processing_jobs`**: Gauge of currently processing jobs
+
+### Accessing Metrics
+
+```bash
+# Get all metrics from the engine
+curl http://localhost:3001/metrics
+
+# Check engine health
+curl http://localhost:3001/health
+```
+
+### Prometheus Configuration
+
+Add the following to your `prometheus.yml`:
+
+```yaml
+scrape_configs:
+  - job_name: 'tempus-engine'
+    static_configs:
+      - targets: ['localhost:3001']
+    scrape_interval: 5s
+    metrics_path: /metrics
 ```
 
 ## Configuration

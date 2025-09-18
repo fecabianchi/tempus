@@ -7,7 +7,9 @@ use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
 use crate::domain::job::port::driver::process_job_use_case_port::ProcessJobUseCasePort;
 use crate::error::{Result, TempusError};
 use crate::infrastructure::kafka::kafka_publisher::publish_kafka_message;
+use crate::infrastructure::metrics::{increment_jobs_processed, observe_job_duration, increment_http_requests, increment_kafka_messages, increment_current_processing_jobs, decrement_current_processing_jobs};
 use chrono::{NaiveDateTime, Utc};
+use std::time::Instant;
 use log::{error, info, warn};
 use once_cell::sync::Lazy;
 use reqwest::{Client, Response};
@@ -48,30 +50,98 @@ impl<JR: JobRepositoryPort + Send + Sync, JMR: JobMetadataRepositoryPort + Send 
     }
 }
 
-async fn handle_success<JMR>(metadata: JobMetadataEntity, job_metadata_repository: JMR) -> Result<()>
-where
-    JMR: JobMetadataRepositoryPort + Send + Sync + 'static,
-{
-    let updated_metadata = JobMetadataEntity {
+fn create_success_metadata(metadata: JobMetadataEntity) -> JobMetadataEntity {
+    JobMetadataEntity {
         job_id: metadata.job_id,
         status: JobMetadataStatus::Completed,
         failure: metadata.failure,
         processed_at: Some(Utc::now().naive_utc()),
-    };
+    }
+}
+
+async fn handle_success<JMR>(metadata: JobMetadataEntity, job_metadata_repository: JMR) -> Result<()>
+where
+    JMR: JobMetadataRepositoryPort + Send + Sync + 'static,
+{
+    let updated_metadata = create_success_metadata(metadata);
 
     job_metadata_repository
         .update_status(updated_metadata)
         .await
         .map_err(TempusError::Database)
+        .map(|_| increment_jobs_processed("success"))
 }
 
 fn should_retry(retries: i32, max_retries: i32) -> bool {
     retries < max_retries
 }
 
+fn calculate_delay_minutes(retries: i32, base_delay_minutes: u32) -> u32 {
+    base_delay_minutes * (2u32.pow(retries as u32))
+}
+
 fn backoff(time: NaiveDateTime, retries: i32, base_delay_minutes: u32) -> NaiveDateTime {
-    let delay_minutes = base_delay_minutes * (2u32.pow(retries as u32));
+    let delay_minutes = calculate_delay_minutes(retries, base_delay_minutes);
     time + chrono::Duration::minutes(delay_minutes as i64)
+}
+
+fn create_retry_metadata(job_metadata: &JobMetadataEntity) -> JobMetadataEntity {
+    JobMetadataEntity {
+        job_id: job_metadata.job_id,
+        status: JobMetadataStatus::Scheduled,
+        failure: None,
+        processed_at: None,
+    }
+}
+
+fn create_failed_metadata(job_metadata: &JobMetadataEntity, error_msg: String) -> JobMetadataEntity {
+    JobMetadataEntity {
+        job_id: job_metadata.job_id,
+        failure: Some(error_msg),
+        processed_at: None,
+        status: JobMetadataStatus::Failed,
+    }
+}
+
+async fn handle_retry<JR>(
+    job: &JobEntity,
+    job_metadata: &JobMetadataEntity,
+    job_repository: JR,
+    config: &AppConfig,
+) -> Result<()>
+where
+    JR: JobRepositoryPort + Send + Sync,
+{
+    let new_time = backoff(job.time, job.retries + 1, config.engine.base_delay_minutes);
+    let retry_metadata = create_retry_metadata(job_metadata);
+
+    info!("Retrying job {} (attempt {}/{})", job.id, job.retries + 1, config.engine.retry_attempts);
+
+    job_repository
+        .handle_retry_transaction(job.id, new_time, retry_metadata)
+        .await
+        .map_err(TempusError::Database)
+        .map(|_| increment_jobs_processed("retry"))
+}
+
+async fn handle_permanent_failure<JMR>(
+    job: &JobEntity,
+    job_metadata: &JobMetadataEntity,
+    job_metadata_repository: JMR,
+    error_msg: String,
+) -> Result<()>
+where
+    JMR: JobMetadataRepositoryPort + Send + Sync,
+{
+    warn!("Job {} failed permanently after {} attempts: {}", job.id, job.retries, error_msg);
+
+    let failed_metadata = create_failed_metadata(job_metadata, error_msg);
+
+    job_metadata_repository
+        .update_status(failed_metadata)
+        .await
+        .map_err(TempusError::Database)
+        .map(|_| increment_jobs_processed("failure"))
 }
 
 async fn handle_failure<JR, JMR>(
@@ -86,39 +156,122 @@ where
     JR: JobRepositoryPort + Send + Sync,
     JMR: JobMetadataRepositoryPort + Send + Sync,
 {
-    let current_retries = job.retries;
-    if should_retry(current_retries, config.engine.retry_attempts) {
-        info!("Retrying job {} (attempt {}/{})", job.id, current_retries + 1, config.engine.retry_attempts);
-        
-        let new_time = backoff(job.time, current_retries + 1, config.engine.base_delay_minutes);
-        let retry_metadata = JobMetadataEntity {
-            job_id: job_metadata.job_id,
-            status: JobMetadataStatus::Scheduled,
-            failure: None,
-            processed_at: None,
-        };
-
-        job_repository
-            .handle_retry_transaction(job.id, new_time, retry_metadata)
-            .await
-            .map_err(TempusError::Database)?;
-    } else {
-        warn!("Job {} failed permanently after {} attempts: {}", job.id, current_retries, error_msg);
-        
-        let failed_metadata = JobMetadataEntity {
-            job_id: job_metadata.job_id,
-            failure: Some(error_msg),
-            processed_at: None,
-            status: JobMetadataStatus::Failed,
-        };
-
-        job_metadata_repository
-            .update_status(failed_metadata)
-            .await
-            .map_err(TempusError::Database)?;
+    match should_retry(job.retries, config.engine.retry_attempts) {
+        true => handle_retry(&job, &job_metadata, job_repository, config).await,
+        false => handle_permanent_failure(&job, &job_metadata, job_metadata_repository, error_msg).await,
     }
-    
-    Ok(())
+}
+
+async fn process_http_job<JMR>(
+    job: &JobEntity,
+    metadata: JobMetadataEntity,
+    target: String,
+    payload: JsonValue,
+    job_metadata_repository: JMR,
+) -> Result<()>
+where
+    JMR: JobMetadataRepositoryPort + Send + Sync + 'static,
+{
+    perform_request(target, payload)
+        .await
+        .and_then(|response| {
+            increment_http_requests(response.status().as_u16());
+            info!("Job {} completed successfully", job.id);
+            Ok(())
+        })
+        .map_err(|e| {
+            error!("Job {} failed: {}", job.id, e);
+            e
+        })?;
+
+    handle_success(metadata, job_metadata_repository).await
+}
+
+async fn process_kafka_job<JMR>(
+    job: &JobEntity,
+    metadata: JobMetadataEntity,
+    target: String,
+    payload: JsonValue,
+    job_metadata_repository: JMR,
+) -> Result<()>
+where
+    JMR: JobMetadataRepositoryPort + Send + Sync + 'static,
+{
+    publish_kafka_message(target, payload)
+        .await
+        .map_err(|e| {
+            error!("Kafka job {} failed: {}", job.id, e);
+            e
+        })?;
+
+    increment_kafka_messages();
+    info!("Kafka job {} completed successfully", job.id);
+    handle_success(metadata, job_metadata_repository).await
+}
+
+async fn process_job_with_metadata<JR, JMR>(
+    job: &JobEntity,
+    inner_job: &JobEntity,
+    metadata: JobMetadataEntity,
+    target: String,
+    payload: JsonValue,
+    job_repository: JR,
+    job_metadata_repository: JMR,
+    config: &AppConfig,
+) -> Result<()>
+where
+    JR: JobRepositoryPort + Send + Sync,
+    JMR: JobMetadataRepositoryPort + Send + Sync + Clone + 'static,
+{
+    let job_result = match job.r#type {
+        JobType::Http => process_http_job(job, metadata.clone(), target, payload, job_metadata_repository.clone()).await,
+        JobType::Kafka => process_kafka_job(job, metadata.clone(), target, payload, job_metadata_repository.clone()).await,
+    };
+
+    match job_result {
+        Ok(_) => Ok(()),
+        Err(e) => handle_failure(
+            inner_job.clone(),
+            metadata,
+            job_repository,
+            job_metadata_repository,
+            e.to_string(),
+            config,
+        ).await,
+    }
+}
+
+async fn process_job_by_type<JR, JMR>(
+    job: &JobEntity,
+    inner_job: &JobEntity,
+    target: String,
+    payload: JsonValue,
+    job_repository: JR,
+    job_metadata_repository: JMR,
+    config: &AppConfig,
+) -> Result<()>
+where
+    JR: JobRepositoryPort + Send + Sync,
+    JMR: JobMetadataRepositoryPort + Send + Sync + Clone + 'static,
+{
+    match &job.metadata {
+        None => {
+            warn!("Metadata is missing for jobId: {}", &job.id);
+            Err(TempusError::JobProcessing("Missing job metadata".to_string()))
+        }
+        Some(metadata) => {
+            process_job_with_metadata(
+                job,
+                inner_job,
+                metadata.clone(),
+                target,
+                payload,
+                job_repository,
+                job_metadata_repository,
+                config,
+            ).await
+        }
+    }
 }
 
 impl<JR, JMR> ProcessJobUseCasePort for ProcessJobUseCase<JR, JMR>
@@ -127,9 +280,11 @@ where
     JMR: JobMetadataRepositoryPort + Send + Sync + Clone + 'static,
 {
     async fn execute(&self) -> Result<()> {
+        let start_time = Instant::now();
+        
         let jobs = self
             .job_repository
-            .find_and_flag_processing()
+            .find_and_flag_processing(self.config.engine.max_concurrent_jobs)
             .await
             .map_err(TempusError::Database)?;
 
@@ -137,7 +292,8 @@ where
             return Ok(());
         }
 
-        info!("Processing {} jobs", jobs.len());
+        let jobs_count = jobs.len();
+        info!("Processing {} jobs", jobs_count);
         let semaphore = Arc::new(tokio::sync::Semaphore::new(self.config.engine.max_concurrent_jobs));
 
         let mut handles = Vec::new();
@@ -160,63 +316,26 @@ where
 
             let handle = tokio::spawn(async move {
                 let _permit = permit;
+                let job_start_time = Instant::now();
+                increment_current_processing_jobs();
                 
-                let result = match job.r#type {
-                    JobType::Http => match job.metadata {
-                        None => {
-                            warn!("Metadata is missing for jobId: {}", &job.id);
-                            Err(TempusError::JobProcessing("Missing job metadata".to_string()))
-                        }
-                        Some(metadata) => {
-                            match perform_request(job_target, job_payload).await {
-                                Ok(_) => {
-                                    info!("Job {} completed successfully", job.id);
-                                    handle_success(metadata, job_metadata_repository).await
-                                }
-                                Err(e) => {
-                                    error!("Job {} failed: {}", job.id, e);
-                                    handle_failure(
-                                        inner_job,
-                                        metadata,
-                                        job_repository,
-                                        job_metadata_repository,
-                                        e.to_string(),
-                                        &config,
-                                    ).await
-                                }
-                            }
-                        }
-                    },
-                    JobType::Kafka => match job.metadata {
-                        None => {
-                            warn!("Metadata is missing for jobId: {}", &job.id);
-                            Err(TempusError::JobProcessing("Missing job metadata".to_string()))
-                        }
-                        Some(metadata) => {
-                            match publish_kafka_message(job_target, job_payload).await {
-                                Ok(_) => {
-                                    info!("Kafka job {} completed successfully", job.id);
-                                    handle_success(metadata, job_metadata_repository).await
-                                }
-                                Err(e) => {
-                                    error!("Kafka job {} failed: {}", job.id, e);
-                                    handle_failure(
-                                        inner_job,
-                                        metadata,
-                                        job_repository,
-                                        job_metadata_repository,
-                                        e.to_string(),
-                                        &config,
-                                    ).await
-                                }
-                            }
-                        }
-                    },
-                };
+                let result = process_job_by_type(
+                    &job,
+                    &inner_job,
+                    job_target,
+                    job_payload,
+                    job_repository,
+                    job_metadata_repository,
+                    &config,
+                ).await;
                 
                 if let Err(e) = result {
                     error!("Error processing job {}: {:?}", job.id, e);
                 }
+
+                let duration = job_start_time.elapsed();
+                observe_job_duration(duration.as_secs_f64());
+                decrement_current_processing_jobs();
             });
             
             handles.push(handle);
@@ -227,6 +346,9 @@ where
                 error!("Task join error: {}", e);
             }
         }
+
+        let total_duration = start_time.elapsed();
+        info!("Completed processing {} jobs in {:.3}s", jobs_count, total_duration.as_secs_f64());
 
         Ok(())
     }

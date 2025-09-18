@@ -1,11 +1,11 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::NaiveDateTime;
 use log::info;
 use uuid::Uuid;
 
 use crate::domain::job::entity::job_entity::JobEntity;
-use crate::domain::job::r#enum::job_enum::JobType;
 use crate::domain::job::port::driven::job_repository_port::JobRepositoryPort;
-use crate::error::{TempusError, Result};
+use crate::domain::job::r#enum::job_enum::JobType;
+use crate::error::{Result, TempusError};
 
 pub struct CreateJobUseCase<R: JobRepositoryPort> {
     job_repository: R,
