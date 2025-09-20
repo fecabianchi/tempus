@@ -28,6 +28,9 @@ pub enum TempusError {
     
     #[error("Kafka error: {0}")]
     Kafka(String),
+    
+    #[error("Metrics error: {0}")]
+    Metrics(String),
 }
 
 pub type Result<T> = std::result::Result<T, TempusError>;

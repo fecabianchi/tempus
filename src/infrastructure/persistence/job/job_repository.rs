@@ -40,7 +40,7 @@ impl JobRepositoryPort for JobRepository {
 
         Ok(jobs)
     }
-    async fn find_and_flag_processing(&self) -> Result<Vec<JobEntity>, DbErr> {
+    async fn find_and_flag_processing(&self, limit: usize) -> Result<Vec<JobEntity>, DbErr> {
         let txn = self.db.begin().await?;
 
         let sql = r#"
@@ -62,7 +62,7 @@ impl JobRepositoryPort for JobRepository {
             .query_all(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 sql,
-                vec![50.into()],
+                vec![(limit as i32).into()],
             ))
             .await?;
 
